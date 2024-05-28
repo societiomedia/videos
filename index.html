@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Gallery</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            position: relative;
+            font-size: 1.1rem;
+            color: #555;
+            transition: color 0.3s ease;
+        }
+
+        .tab:hover {
+            color: #000;
+        }
+
+        .tab.active {
+            font-weight: bold;
+            color: #000;
+        }
+
+        .underline {
+            position: absolute;
+            bottom: 0;
+            height: 4px;
+            background-color: #000;
+            transition: all 0.3s ease;
+        }
+
+        .content {
+            display: none;
+            padding: 20px;
+        }
+
+        .content.active {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .video-item {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: auto;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .video-title {
+            padding: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: relative;
+            margin: 5% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 700px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation: modalFadeIn 0.5s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+        }
+
+        .responsive-iframe {
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%;
+            position: relative;
+        }
+
+        .responsive-iframe iframe {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <div class="tab active" data-target="videos">Videos</div>
+        <div class="tab" data-target="shorts">Shorts</div>
+        <div class="underline"></div>
+    </div>
+
+    <div id="videos" class="content active"></div>
+    <div id="shorts" class="content"></div>
+
+    <!-- Modal structure -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="responsive-iframe">
+                <iframe id="videoIframe" src="" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = 'AIzaSyAyzob6LR9E3peTQxAMyygwtCngXNFN8jM'; // Replace with your YouTube Data API key
+        const videoIds = ['y5SX_PQtk_E', 'DEKjQ4dChzU', 'mLovE0S9Hfc', '9Y2T6gE16rM', '']; // Video IDs
+        const shortIds = ['PBkrB81V1E4', '', '', '', '']; // Shorts IDs
+
+        const tabs = document.querySelectorAll('.tab');
+        const contents = document.querySelectorAll('.content');
+        const underline = document.querySelector('.underline');
+        const modal = document.getElementById('videoModal');
+        const videoIframe = document.getElementById('videoIframe');
+        const closeModal = document.getElementsByClassName('close')[0];
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelector('.tab.active').classList.remove('active');
+                tab.classList.add('active');
+                document.querySelector('.content.active').classList.remove('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
+                updateUnderline();
+            });
+        });
+
+        function updateUnderline() {
+            const activeTab = document.querySelector('.tab.active');
+            underline.style.width = activeTab.offsetWidth + 'px';
+            underline.style.left = activeTab.offsetLeft + 'px';
+        }
+
+        async function fetchVideoDetails(videoId) {
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet`);
+            const data = await response.json();
+            return data.items[0].snippet;
+        }
+
+        async function displayVideos(videoIds, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; // Clear existing content
+            for (const videoId of videoIds) {
+                const videoDetails = await fetchVideoDetails(videoId);
+                const videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+                videoItem.dataset.videoId = videoId;
+
+                const thumbnail = document.createElement('img');
+                thumbnail.className = 'video-thumbnail';
+                thumbnail.src = videoDetails.thumbnails.medium.url;
+
+                const title = document.createElement('div');
+                title.className = 'video-title';
+                title.textContent = videoDetails.title;
+
+                videoItem.appendChild(thumbnail);
+                videoItem.appendChild(title);
+                container.appendChild(videoItem);
+
+                videoItem.addEventListener('click', () => {
+                    videoIframe.src = `https://www.youtube.com/embed/${videoId}`;
+                    modal.style.display = 'block';
+                });
+            }
+        }
+
+        closeModal.onclick = function() {
+            modal.style.display = 'none';
+            videoIframe.src = '';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+                videoIframe.src = '';
+            }
+        }
+
+        displayVideos(videoIds, 'videos');
+        displayVideos(shortIds, 'shorts');
+        updateUnderline();
+        window.addEventListener('resize', updateUnderline);
+    </script>
+</body>
+</html>
